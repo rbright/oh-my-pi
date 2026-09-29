@@ -43,7 +43,7 @@ bun run pi:run                    # docker run -it oh-my-pi/pi:dev (smoke-test t
 bun run robomp:build              # pi:image (if pi changed) + docker compose build
 bun run robomp:dev                # build + up -d + follow logs
 bun run robomp:up / robomp:down / robomp:restart / robomp:logs
-bun run robomp:rebuild            # docker compose build --no-cache
+bun run robomp:rebuild            # pi:image + docker compose build --no-cache
 bun run robomp:reset              # `down -v` + drop the pi image
 ```
 
@@ -66,7 +66,7 @@ docker compose --project-directory python/robomp exec robomp robomp cleanup owne
 
 HTTP / sqlite / webhook inspection is unaliased — use `curl http://localhost:${ROBOMP_BIND_PORT:-8080}/{healthz,readyz,events,issues}` and `docker compose --project-directory python/robomp exec robomp sqlite3 /data/robomp.sqlite` directly.
 
-Lint + format: TypeScript via Biome (config in `biome.json`), Python via Ruff (config in `pyproject.toml`). Root recipes cover both languages — `bun run lint` / `bun run fix` apply to the whole monorepo including roboomp. `bun run lint:py` / `bun run fix:py` scope to Python only.
+Lint + format: TypeScript via oxlint + oxfmt (config in the root `.oxlintrc.json` / `.oxfmtrc.json`), Python via Ruff (config in `pyproject.toml`). Root `bun run lint` / `bun run fix` cover TypeScript (including `web/`) and Rust only. `bun run lint:py` / `bun run fix:py` cover Python.
 
 ## Code Conventions & Common Patterns
 
@@ -105,10 +105,10 @@ Lint + format: TypeScript via Biome (config in `biome.json`), Python via Ruff (c
 
 ## Runtime/Tooling Preferences
 
-- **Python**: 3.11+ source target, 3.12 in container. Setuptools src layout (`pyproject.toml` `[tool.setuptools] package-dir = { "" = "src" }`).
+- **Python**: 3.11+ source target, 3.12 in container. Setuptools src layout (`pyproject.toml` `[tool.setuptools] package-dir = { "robomp" = "src" }`).
 - **Package manager**: `pip` only. No poetry / uv / pdm files; don't introduce one.
 - **Task runner**: `bun` (root `package.json` `scripts`). Always reach for an existing `bun run` recipe before invoking `docker compose` or `pytest` directly.
-- **Container runtime**: Docker Compose v2. The image embeds Bun 1.3.14 + a rustup launcher and exposes `omp` via a `/usr/local/bin/omp` shim; `ROBOMP_OMP_COMMAND=omp` should not need changing.
+- **Container runtime**: Docker Compose v2. The image embeds Bun (version pinned by `BUN_VERSION` in the root `Dockerfile`) + a rustup launcher and exposes `omp` via a `/usr/local/bin/omp` shim; `ROBOMP_OMP_COMMAND=omp` should not need changing.
 - **Required env** (set in `.env`, see `.env.example`): `GITHUB_WEBHOOK_SECRET`, `ROBOMP_BOT_LOGIN`, `ROBOMP_GIT_AUTHOR_NAME`, `ROBOMP_GIT_AUTHOR_EMAIL`, `ROBOMP_REPO_ALLOWLIST`, plus model knobs (`ROBOMP_MODEL`, `ROBOMP_THINKING`, optional `ROBOMP_PROVIDER`) and rate-limit / concurrency / timeout overrides. Set `ROBOMP_BOT_LOGIN` to the lowercase mention handle (`roboomp` in production, no leading `@` or `[bot]`; config normalizes common variants). `ROBOMP_MAINTAINER_LOGINS` is optional comma-separated bare logins (`@`/`[bot]` optional, case-insensitive) for non-owner implementation authorizers. **GitHub auth is mode-exclusive**: either set `ROBOMP_GH_PROXY_URL` + `ROBOMP_GH_PROXY_HMAC_KEY` (gh-proxy mode; PAT lives only in the sidecar container — the bundled compose default), or set `GITHUB_TOKEN` directly (single-process PAT mode). `Settings._validate_proxy_or_pat` rejects a `.env` that sets both.
 - **PI_ROOT resolution**: roboomp lives inside the oh-my-pi monorepo at `python/robomp/`. `bun run pi:image` builds the parent monorepo (`../..`) as its docker build context to produce `oh-my-pi/pi:dev`; `docker-compose.yml` extends that image via `PI_BASE` and mounts the same parent path read-only at `/work/pi` for the orchestrator to see live source. Override `PI_ROOT` only when pointing the build/mount at a different oh-my-pi checkout. Inside the container the path is always `/work/pi`. Build invalidation stays bounded: Python-only edits in roboomp never trigger a natives recompile.
 - **Forbidden**: no docker-in-docker, no extra service containers, no new background workers outside `WorkerPool`. The container itself is the isolation boundary; per-issue isolation is the git worktree.
@@ -124,4 +124,4 @@ Lint + format: TypeScript via Biome (config in `biome.json`), Python via Ruff (c
 - **Async tests**: `test_github_client.py` and `test_host_tools.py` spin custom event loops in background threads to bridge sync-style tests with async client code. Prefer `pytest-asyncio` `auto` mode (`async def test_*`) for new tests; only fall back to the loop helpers if matching the surrounding file's style.
 - **Mocking**: never patch internals; inject test doubles via `httpx.MockTransport` for HTTP and via the `db` / `tmp_path` fixtures for storage. Sandbox tests use a real local bare repo as the upstream.
 - **Integration**: `tests/test_worker_smoke.py` is gated by `ROBOMP_INTEGRATION=1` (uses `pytestmark.skipif`) and needs `omp` on `PATH`. Don't enable it in default `bun run test:py`.
-- **Coverage expectation**: ~80 unit tests currently. New code with a control-flow branch needs a test covering it; new host tools need at minimum a happy path + one validation-failure path mirroring `test_host_tools.py`. Test logical behavior (assertions on observable effects in DB / HTTP requests), not literal strings or default config values.
+- **Coverage expectation**: New code with a control-flow branch needs a test covering it; new host tools need at minimum a happy path + one validation-failure path mirroring `test_host_tools.py`. Test logical behavior (assertions on observable effects in DB / HTTP requests), not literal strings or default config values.
