@@ -31,7 +31,10 @@ pkgs.mkShell (
         basedpyright
 
         bash
-        cacert
+        # The pinned nixpkgs ships cacert 3.126, which still trusts the root above
+        # the compromised eMudhra intermediates (https://emudhra.we-have-a-problem.com/).
+        # cacert 3.131.1 drops it; remove this override once nixpkgs ships it.
+        (cacert.override { blacklist = [ "emSign ECC Root CA - G3" ]; })
         curl
         fd
         git
