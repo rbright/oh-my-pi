@@ -43,10 +43,15 @@ ENV BUN_INSTALL=/opt/bun \
 
 # clang/libclang-dev: bindgen for pipewire-sys/libspa-sys (Linux desktop capture);
 # cmake/make/ninja-build: opusic-sys builds bundled libopus via CMake.
+# The sed distrusts the roots above the compromised eMudhra intermediates
+# (https://emudhra.we-have-a-problem.com/) until Debian ships a fixed
+# ca-certificates (bug 1151413). The other Debian stages repeat it.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl ca-certificates pkg-config libssl-dev unzip git \
         clang libclang-dev cmake make ninja-build \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
@@ -99,6 +104,8 @@ FROM python:3.12-slim-bookworm AS wheel-builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip build
@@ -133,7 +140,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git curl ca-certificates unzip openssh-client tini sqlite3 \
         build-essential pkg-config libssl-dev \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# The eMudhra advisory lists pip 26.2.2 as the patched minimum; the base image
+# ships an older pip with a stale vendored certifi.
+RUN pip install --upgrade "pip>=26.2.2"
 
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
     && /opt/bun/bin/bun --version
