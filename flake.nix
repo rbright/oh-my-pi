@@ -15,6 +15,11 @@
     # platform on the final stable branch that still receives security fixes.
     nixpkgs-darwin-x64.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
 
+    # eMudhra intermediate CA compromise (https://emudhra.we-have-a-problem.com/):
+    # the dev shell takes cacert and uv from master. Remove this input once
+    # nixpkgs ships cacert >= 3.131.1, Go >= 1.26.10, and uv >= 0.13.4.
+    nixpkgs-master.url = "github:NixOS/nixpkgs/10d12e1e27724577e9d8e5e603576b87c6bdaad0";
+
     bun2nix = {
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -47,6 +52,7 @@
       nix-bun,
       nixpkgs,
       nixpkgs-darwin-x64,
+      nixpkgs-master,
       rust-overlay,
       ...
     }:
@@ -82,6 +88,21 @@
           bun2nix = bun2nixFor system;
           rustToolchain = rustToolchainFor system;
         };
+
+      # nixpkgs-master dropped x86_64-darwin, so that system keeps its stable
+      # cacert 3.126 with the compromised eMudhra root removed.
+      trustPackagesFor =
+        system:
+        if system == "x86_64-darwin" then
+          let
+            pkgs = pkgsFor system;
+          in
+          {
+            cacert = pkgs.cacert.override { blacklist = [ "emSign ECC Root CA - G3" ]; };
+            inherit (pkgs) uv;
+          }
+        else
+          { inherit (nixpkgs-master.legacyPackages.${system}) cacert uv; };
 
       packageFor =
         system:
@@ -124,7 +145,9 @@
           localPackages = localPackagesFor system;
         in
         {
-          default = import ./nix/dev-shell.nix ({ inherit pkgs; } // localPackages);
+          default = import ./nix/dev-shell.nix (
+            { inherit pkgs; } // localPackages // trustPackagesFor system
+          );
         }
       );
 

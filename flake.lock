@@ -140,6 +140,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-master": {
+      "locked": {
+        "lastModified": 1792537503,
+        "narHash": "sha256-b4orwifHEcRJZu1L0gNcbons+vFTOguZKw1p0R7Q/Qw=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "10d12e1e27724577e9d8e5e603576b87c6bdaad0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "10d12e1e27724577e9d8e5e603576b87c6bdaad0",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -147,6 +163,7 @@
         "nix-bun": "nix-bun",
         "nixpkgs": "nixpkgs",
         "nixpkgs-darwin-x64": "nixpkgs-darwin-x64",
+        "nixpkgs-master": "nixpkgs-master",
         "rust-overlay": "rust-overlay"
       }
     },
