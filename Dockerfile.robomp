@@ -56,8 +56,11 @@ COPY python/robomp/pyproject.toml ./
 COPY python/robomp/src/ ./src/
 COPY --from=web-builder /work/python/robomp/web/dist/ ./src/static/
 
+# certifi floor: httpx verifies TLS with certifi; 2026.10.19 drops the
+# compromised eMudhra chain (https://emudhra.we-have-a-problem.com/).
 RUN pip install --no-cache-dir \
         "fastapi>=0.112" "uvicorn[standard]>=0.30" "httpx>=0.27" \
+        "certifi>=2026.10.19" \
         "pydantic>=2.6" "pydantic-settings>=2.2" "python-dotenv>=1.0" \
         "click>=8.1" \
     && pip install --no-cache-dir --no-deps .
