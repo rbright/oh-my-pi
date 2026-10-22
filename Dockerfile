@@ -22,7 +22,7 @@
 #     FROM ${PI_BASE} AS pi-base
 ###############################################################################
 
-ARG BUN_VERSION=1.4.2
+ARG BUN_VERSION=1.4.4
 
 ############################
 # 1) natives-builder — Rust + Bun → pi_natives.linux-<arch>.node (local cargo)
@@ -43,10 +43,17 @@ ENV BUN_INSTALL=/opt/bun \
 
 # clang/libclang-dev: bindgen for pipewire-sys/libspa-sys (Linux desktop capture);
 # cmake/make/ninja-build: opusic-sys builds bundled libopus via CMake.
+# eMudhra CA compromise (https://emudhra.we-have-a-problem.com/): every Debian
+# stage requires ca-certificates 20250419~deb12u2 from bookworm-security, which
+# drops emSign ECC Root CA - G3 and Comodo AAA Services root (bug 1151413). No CI
+# job builds these images, so the stages also keep the advisory's blocklist.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl ca-certificates pkg-config libssl-dev unzip git \
         clang libclang-dev cmake make ninja-build \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20250419~deb12u2 \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
@@ -98,10 +105,15 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM python:3.12-slim-bookworm AS wheel-builder
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20250419~deb12u2 \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip build
+# pip 26.2.2 vendors certifi 2026.10.19, the patched bundle for the eMudhra
+# advisory.
+RUN pip install --upgrade "pip>=26.2.2" build
 
 WORKDIR /src
 COPY python/omp-rpc /src
@@ -133,7 +145,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git curl ca-certificates unzip openssh-client tini sqlite3 \
         build-essential pkg-config libssl-dev \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20250419~deb12u2 \
+    && sed -i -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade "pip>=26.2.2"
 
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
     && /opt/bun/bin/bun --version

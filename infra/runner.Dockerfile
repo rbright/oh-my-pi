@@ -19,7 +19,7 @@
 FROM ghcr.io/actions/actions-runner:latest
 
 ARG RUST_NIGHTLY=nightly-2026-09-14
-ARG BUN_VERSION=1.4.2
+ARG BUN_VERSION=1.4.4
 ARG SCCACHE_VERSION=0.18.0
 ARG ZIG_VERSION=0.16.0
 ARG CMAKE_VERSION=4.4.3
@@ -33,7 +33,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Mirrors the "Install system deps" block in .github/workflows/ci.yml plus the
 # native/cross toolchain (clang/lld/llvm), the baked cache/tooling binaries, and
 # the GitHub CLI. The gh apt repo is added first so `gh` installs in the same apt
-# transaction.
+# transaction. The dpkg check requires the noble-security ca-certificates that
+# drops the roots above the compromised eMudhra intermediates
+# (https://emudhra.we-have-a-problem.com/).
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
@@ -43,6 +45,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o 
       clang lld llvm \
       libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
       fd-find ripgrep imagemagick \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20260816ubuntu0.24.04.1 \
  && ln -sf "$(command -v fdfind)" /usr/local/bin/fd \
  && ln -sf /usr/bin/convert /usr/local/bin/magick \
  && rm -rf /var/lib/apt/lists/*

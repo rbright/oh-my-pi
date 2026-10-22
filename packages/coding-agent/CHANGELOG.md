@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The `install.sh` and `install.ps1` Bun install paths now require Bun 1.4.4 or newer, the first release with the eMudhra intermediate CA verifier fix ([advisory](https://emudhra.we-have-a-problem.com/)).
+
 ### Fixed
 
 - Fixed startup aborting when the plugins directory exists but cannot be read — a sandboxed run, a restrictive mode, or a manifest symlinked into a denied path; the unreadable root is now skipped with a warning.
+- Fixed the `oh-my-pi/pi` and robomp Docker images trusting the roots above the compromised eMudhra intermediates: they now require Debian's fixed `ca-certificates` (`20250419~deb12u2`), pip 26.2.2, certifi 2026.10.19 (robomp), and Bun 1.4.4 ([advisory](https://emudhra.we-have-a-problem.com/)).
+
 ## [18.2.4] - 2026-09-17
 
 ### Added
