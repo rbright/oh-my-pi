@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Updated `rustls-webpki` to 0.103.16, the patched release for the eMudhra intermediate CA compromise ([advisory](https://emudhra.we-have-a-problem.com/)).
+
 ## [18.2.1] - 2026-09-15
 
 ### Added
